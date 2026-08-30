@@ -3,6 +3,10 @@
   "version": "1.0.3",
   "description": "Chrome Gemini AI one-click unlock tool for all platforms",
   "homepage": "https://github.com/normal-coder/glic-kit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normal-coder/glic-kit.git"
+  },
   "type": "module",
   "bin": {
     "glic-kit": "dist/index.js"
