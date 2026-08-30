@@ -3,7 +3,7 @@ console.log('🔨 Building glic-kit...')
 const compile = process.argv.includes('--compile')
 
 if (compile) {
-  // Single-file binary for current platform
+  // Single-file binary for current platform (Bun runtime bundled)
   const proc = Bun.spawnSync([
     'bun', 'build', '--compile', '--outfile', 'dist/glic-kit',
     './src/index.ts',
@@ -11,7 +11,22 @@ if (compile) {
   process.exit(proc.exitCode)
 }
 
-// ESM bundle (needs node/bun at runtime)
+// ESM bundle for Node.js (used via npx)
+// Stub out react-devtools-core to avoid runtime import error in Node
+const stubDevtools: Bun.Plugin = {
+  name: 'stub-devtools',
+  setup(build) {
+    build.onResolve({ filter: /^react-devtools-core$/ }, () => ({
+      path: 'react-devtools-core',
+      namespace: 'stub',
+    }))
+    build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
+      contents: 'export default {}',
+      loader: 'js',
+    }))
+  },
+}
+
 const result = await Bun.build({
   entrypoints: ['./src/index.ts'],
   outdir: './dist',
@@ -19,7 +34,7 @@ const result = await Bun.build({
   format: 'esm',
   minify: true,
   sourcemap: 'external',
-  external: ['react-devtools-core'],
+  plugins: [stubDevtools],
 })
 
 if (!result.success) {
