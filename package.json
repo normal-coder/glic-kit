@@ -1,6 +1,6 @@
 {
   "name": "glic-kit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Chrome Gemini AI one-click unlock tool for all platforms",
   "homepage": "https://github.com/normal-coder/glic-kit",
   "type": "module",
@@ -33,6 +33,11 @@
     "url": "https://normalcoder.com"
   },
   "license": "MIT",
+  "files": [
+    "dist/index.js",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
