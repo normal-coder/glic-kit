@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { execSync, spawn } from 'node:child_process'
 import { getPlatform } from './platform.ts'
 import type { ChromeChannel, ChannelStatus } from '../types.ts'
 import { GLIC_EXPERIMENTS, TARGET_COUNTRY } from './constants.ts'
@@ -114,17 +115,17 @@ export function checkChannelStatus(channel: ChromeChannel): ChannelStatus {
   return base
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /** Check if Chrome process is running */
 export async function isChromeRunning(channel: ChromeChannel): Promise<boolean> {
   const platform = getPlatform()
 
   try {
     if (platform === 'darwin') {
-      // Use ps to find Chrome processes matching the app path
-      const proc = Bun.spawn(['ps', '-ax', '-o', 'pid=,command='], {
-        stdout: 'pipe', stderr: 'pipe',
-      })
-      const output = await new Response(proc.stdout).text()
+      const output = execSync('ps -ax -o pid=,command=', { encoding: 'utf-8', timeout: 5000 })
       const appPath = `/Applications/${channel.appName}.app`
       return output.split('\n').some((line) =>
         line.includes(appPath) &&
@@ -134,19 +135,19 @@ export async function isChromeRunning(channel: ChromeChannel): Promise<boolean> 
     }
 
     if (platform === 'win32') {
-      const proc = Bun.spawn(['tasklist', '/FI', `IMAGENAME eq chrome.exe`, '/NH'], {
-        stdout: 'pipe', stderr: 'pipe',
+      const output = execSync('tasklist /FI "IMAGENAME eq chrome.exe" /NH', {
+        encoding: 'utf-8', timeout: 5000,
       })
-      const output = await new Response(proc.stdout).text()
       return output.includes('chrome.exe')
     }
 
     // Linux
-    const proc = Bun.spawn(['pgrep', '-x', 'chrome'], {
-      stdout: 'pipe', stderr: 'pipe',
-    })
-    await proc.exited
-    return proc.exitCode === 0
+    try {
+      execSync('pgrep -x chrome', { timeout: 5000 })
+      return true
+    } catch {
+      return false
+    }
   } catch {
     return false
   }
@@ -158,19 +159,13 @@ export async function quitChrome(channel: ChromeChannel): Promise<boolean> {
 
   try {
     if (platform === 'darwin') {
-      // Use osascript to quit Chrome gracefully
-      Bun.spawn(['osascript', '-e', `tell application "${channel.appName}" to quit`], {
-        stdout: 'pipe', stderr: 'pipe',
+      spawn('osascript', ['-e', `tell application "${channel.appName}" to quit`], {
+        stdio: 'ignore',
       })
     } else if (platform === 'win32') {
-      Bun.spawn(['taskkill', '/IM', 'chrome.exe'], {
-        stdout: 'pipe', stderr: 'pipe',
-      })
+      spawn('taskkill', ['/IM', 'chrome.exe'], { stdio: 'ignore' })
     } else {
-      // Linux: use pkill
-      Bun.spawn(['pkill', '-x', 'chrome'], {
-        stdout: 'pipe', stderr: 'pipe',
-      })
+      spawn('pkill', ['-x', 'chrome'], { stdio: 'ignore' })
     }
   } catch {
     // Ignore errors - process may already be gone
@@ -180,7 +175,7 @@ export async function quitChrome(channel: ChromeChannel): Promise<boolean> {
   for (let i = 0; i < 40; i++) {
     const running = await isChromeRunning(channel)
     if (!running) return true
-    await Bun.sleep(250)
+    await sleep(250)
   }
 
   return false
@@ -201,9 +196,8 @@ export function launchChrome(
     if (args.length > 0) {
       spawnArgs.push('--args', ...args)
     }
-    Bun.spawn(spawnArgs, { stdout: 'pipe', stderr: 'pipe' })
+    spawn(spawnArgs[0], spawnArgs.slice(1), { stdio: 'ignore' })
   } else if (platform === 'win32') {
-    // On Windows, try common Chrome install paths
     const programFiles = process.env['PROGRAMFILES'] || 'C:\\Program Files'
     const programFilesX86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'
     const localAppData = process.env.LOCALAPPDATA || ''
@@ -222,18 +216,16 @@ export function launchChrome(
 
     const chromePath = possiblePaths.find((p) => existsSync(p))
     if (chromePath) {
-      Bun.spawn([chromePath, ...args], { detached: true, stdout: 'pipe', stderr: 'pipe' })
+      spawn(chromePath, args, { detached: true, stdio: 'ignore' })
     }
   } else {
     // Linux
-    const commands = {
+    const commands: Record<string, string> = {
       stable: 'google-chrome',
       beta: 'google-chrome-beta',
       dev: 'google-chrome-unstable',
       canary: 'google-chrome',
     }
-    Bun.spawn([commands[channel.name], ...args], {
-      detached: true, stdout: 'pipe', stderr: 'pipe',
-    })
+    spawn(commands[channel.name], args, { detached: true, stdio: 'ignore' })
   }
 }

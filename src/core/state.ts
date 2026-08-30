@@ -38,7 +38,7 @@ export async function patchLocalState(
 ): Promise<PatchResult> {
   const log = options.onProgress ?? (() => {})
   const step = async (msg: string) => {
-    if (options.onProgress) await Bun.sleep(180)
+    if (options.onProgress) await new Promise((r) => setTimeout(r, 180))
     log(msg)
   }
   const result: PatchResult = {
