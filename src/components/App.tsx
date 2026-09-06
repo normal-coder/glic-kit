@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Text, useApp, useInput } from 'ink'
 import type { ChannelStatus, PatchResult } from '../types.ts'
-import { createRequire } from 'node:module'
+import { readFileSync, existsSync } from 'node:fs'
+import { join, dirname } from 'node:path'
 
-const require = createRequire(import.meta.url)
-const VERSION = require('../../package.json').version
+const VERSION = (() => {
+  // Walk up from current file to find package.json
+  let dir = dirname(new URL(import.meta.url).pathname)
+  for (let i = 0; i < 5; i++) {
+    const pkgPath = join(dir, 'package.json')
+    if (existsSync(pkgPath)) {
+      try { return JSON.parse(readFileSync(pkgPath, 'utf-8')).version } catch {}
+    }
+    dir = dirname(dir)
+  }
+  return 'dev'
+})()
 import { getPlatform } from '../core/platform.ts'
 import { checkChannelStatus } from '../core/chrome.ts'
 import { patchLocalState } from '../core/state.ts'
