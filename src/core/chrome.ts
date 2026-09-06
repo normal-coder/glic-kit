@@ -159,20 +159,24 @@ export async function quitChrome(channel: ChromeChannel): Promise<boolean> {
 
   try {
     if (platform === 'darwin') {
+      // Apple Event: tells Chrome to quit normally (saves session)
       spawn('osascript', ['-e', `tell application "${channel.appName}" to quit`], {
         stdio: 'ignore',
       })
     } else if (platform === 'win32') {
+      // Send WM_CLOSE to each Chrome window (graceful, saves session)
+      // taskkill without /F sends WM_CLOSE on GUI apps
       spawn('taskkill', ['/IM', 'chrome.exe'], { stdio: 'ignore' })
     } else {
-      spawn('pkill', ['-x', 'chrome'], { stdio: 'ignore' })
+      // Linux: SIGTERM gives Chrome time to save session before exiting
+      spawn('pkill', ['-TERM', '-x', 'chrome'], { stdio: 'ignore' })
     }
   } catch {
     // Ignore errors - process may already be gone
   }
 
-  // Wait up to 10 seconds for Chrome to exit
-  for (let i = 0; i < 40; i++) {
+  // Wait up to 15 seconds for Chrome to exit (session save may take time)
+  for (let i = 0; i < 60; i++) {
     const running = await isChromeRunning(channel)
     if (!running) return true
     await sleep(250)
@@ -189,6 +193,8 @@ export function launchChrome(
 ): void {
   const platform = getPlatform()
   const args = [...flags]
+  // Restore tabs from the session before we quit Chrome
+  args.push('--restore-last-session')
   if (lang) args.push(`--lang=${lang}`)
 
   if (platform === 'darwin') {
