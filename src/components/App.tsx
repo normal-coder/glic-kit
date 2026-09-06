@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Text, useApp, useInput } from 'ink'
 import type { ChannelStatus, PatchResult } from '../types.ts'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const VERSION = require('../../package.json').version
 import { getPlatform } from '../core/platform.ts'
 import { checkChannelStatus } from '../core/chrome.ts'
 import { patchLocalState } from '../core/state.ts'
@@ -227,7 +231,7 @@ export const App: React.FC = () => {
   // Main list view
   return (
     <Box flexDirection="column" padding={1}>
-      <Text color="cyan" bold>🔑 glic-kit — Chrome Gemini AI 一键解锁工具</Text>
+      <Text color="cyan" bold>🔑 glic-kit v{VERSION} — Chrome Gemini AI 一键解锁工具</Text>
       <Box marginTop={1} marginBottom={1}>
         <Text color="gray">已安装的 Chrome 浏览器：</Text>
       </Box>
